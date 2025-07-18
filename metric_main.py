@@ -4,7 +4,11 @@ import numpy as np
 np.float = np.float64  # temp fix for following import https://github.com/eric-wieser/ros_numpy/issues/37
 import torch
 import os
-from .metric_depth.depth_anything_v2.dpt import DepthAnythingV2
+
+try:
+    from .metric_depth.depth_anything_v2.dpt import DepthAnythingV2
+except:
+    from metric_depth.depth_anything_v2.dpt import DepthAnythingV2
 
 
 class DepthAny2:
