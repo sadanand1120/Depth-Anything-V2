@@ -198,3 +198,32 @@ If you find this project useful, please consider citing:
   year={2024}
 }
 ```
+
+## Installation and Usage (Minimal DepthAny2 Package)
+
+### Install in Editable Mode
+
+```bash
+conda activate dany2
+cd /home/dynamo/AMRL_Research/repos/depthany2
+pip install -e .
+```
+
+### Run as Script
+
+You can run the point cloud/depth script directly:
+
+```bash
+python3 minimal_pts.py --help
+```
+
+### Import as a Module
+
+After installation, you can import the main functions/classes from anywhere:
+
+```python
+from depthany2.minimal_pts import depth2points
+from depthany2.metric_main import DepthAny2
+```
+
+This allows you to use the depth prediction and point cloud utilities in your own scripts or notebooks.

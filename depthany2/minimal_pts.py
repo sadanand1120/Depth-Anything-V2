@@ -6,11 +6,7 @@ import argparse
 import matplotlib.pyplot as plt
 import open3d as o3d
 from PIL import Image
-
-try:
-    from .metric_main import DepthAny2
-except:
-    from metric_main import DepthAny2
+from depthany2.metric_main import DepthAny2
 
 
 def depth2points(depth_arr_img: np.ndarray, cam_intrinsics_dict):

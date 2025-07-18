@@ -4,11 +4,7 @@ import numpy as np
 np.float = np.float64  # temp fix for following import https://github.com/eric-wieser/ros_numpy/issues/37
 import torch
 import os
-
-try:
-    from .metric_depth.depth_anything_v2.dpt import DepthAnythingV2
-except:
-    from metric_depth.depth_anything_v2.dpt import DepthAnythingV2
+from metric_depth.depth_anything_v2.dpt import DepthAnythingV2
 
 
 class DepthAny2:
@@ -33,7 +29,7 @@ class DepthAny2:
                 'vitl': {'encoder': 'vitl', 'features': 256, 'out_channels': [256, 512, 1024, 1024]}
             }
             self.depth_model = DepthAnythingV2(**{**model_configs[self.encoder_name], 'max_depth': self.max_depth})
-            ckpt_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), f'metric_depth/checkpoints/depth_anything_v2_metric_{self.dataset_name}_{self.encoder_name}.pth')
+            ckpt_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), f'../metric_depth/checkpoints/depth_anything_v2_metric_{self.dataset_name}_{self.encoder_name}.pth')
             self.depth_model.load_state_dict(torch.load(ckpt_path, map_location=self.DEVICE))
             self.depth_model.eval()
 
