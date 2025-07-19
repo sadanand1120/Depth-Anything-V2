@@ -8,3 +8,4 @@ opencv-python
 #torch
 #torchvision
 requests
+open3d==0.16.0

@@ -1,23 +1,15 @@
 # Depth Anything V2 API Server Configurations
-# Add your lab server configurations here
 
-# Local development server
+# Local development server (no authentication)
 depth-anything-v2-local:
   base_url: "http://localhost:8000"
   api_key: null
   model: "depth-anything-v2"
   description: "Local development server"
 
-# Example lab server (replace with your actual server details)
+# Lab server (replace with your actual server details)
 depth-anything-v2-lab:
   base_url: "http://your-lab-server:8000"  # Replace with actual server URL
-  api_key: null  # Add API key if authentication is enabled
+  api_key: "sk-your-api-key-here"  # Replace with your API key
   model: "depth-anything-v2"
-  description: "AMRL Lab server with H-100/A-100 GPUs"
-
-# Example with authentication (if you add auth later)
-depth-anything-v2-secure:
-  base_url: "https://your-secure-server:8000"
-  api_key: "your-api-key-here"
-  model: "depth-anything-v2"
-  description: "Secure server with authentication" 
+  description: "Lab server with authentication" 

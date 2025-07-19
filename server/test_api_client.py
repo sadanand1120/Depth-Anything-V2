@@ -7,11 +7,10 @@ import yaml
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Add paths
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Add paths for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from client.depth_client import (
+from server.client.depth_client import (
     encode_image, decode_pointcloud, decode_depth_map,
     predict_pointcloud, predict_metric_depth, predict_relative_depth, get_health
 )
@@ -23,10 +22,11 @@ def test_endpoints():
     print("Testing Depth Anything V2 API endpoints...")
     
     # Load config
-    with open("config/servers.yaml", "r") as f:
+    with open("server/config/servers.yaml", "r") as f:
         servers = yaml.safe_load(f)
     
     base_url = servers["depth-anything-v2-local"]["base_url"]
+    api_key = servers["depth-anything-v2-local"]["api_key"]
     
     # Load camera intrinsics (use example data if not available)
     try:
@@ -57,7 +57,7 @@ def test_endpoints():
     
     try:
         # Test health
-        health = get_health(base_url)
+        health = get_health(base_url, api_key)
         print(f"✅ Health: {health}")
         
         # Test pointcloud
@@ -65,7 +65,8 @@ def test_endpoints():
             image=image_base64,
             camera_intrinsics=camera_intrinsics,
             base_url=base_url,
-            max_depth=1.0
+            max_depth=1.0,
+            api_key=api_key
         )
         print(f"✅ Pointcloud: shape {pc_result['shape']}")
         
@@ -74,7 +75,8 @@ def test_endpoints():
             image=image_base64,
             camera_intrinsics=camera_intrinsics,
             base_url=base_url,
-            max_depth=1.0
+            max_depth=1.0,
+            api_key=api_key
         )
         print(f"✅ Metric depth: shape {metric_result['shape']}, range [{metric_result['min']:.3f}, {metric_result['max']:.3f}]")
         
@@ -82,7 +84,8 @@ def test_endpoints():
         rel_result = predict_relative_depth(
             image=image_base64,
             camera_intrinsics=camera_intrinsics,
-            base_url=base_url
+            base_url=base_url,
+            api_key=api_key
         )
         print(f"✅ Relative depth: shape {rel_result['shape']}, range [{rel_result['min']:.3f}, {rel_result['max']:.3f}]")
         
@@ -107,5 +110,45 @@ def test_endpoints():
         return False
 
 
+def test_authentication():
+    """Test API key authentication"""
+    print("\n🔐 Testing API Key Authentication...")
+    
+    # Load config
+    with open("server/config/servers.yaml", "r") as f:
+        servers = yaml.safe_load(f)
+    
+    base_url = servers["depth-anything-v2-local"]["base_url"]
+    
+    # Test without API key (should work if auth is disabled)
+    try:
+        health = get_health(base_url)
+        print("✅ Health check without API key: SUCCESS")
+    except Exception as e:
+        print(f"❌ Health check without API key: {e}")
+    
+    # Test with invalid API key
+    try:
+        health = get_health(base_url, api_key="invalid-key")
+        print("❌ Health check with invalid API key: Should have failed")
+    except Exception as e:
+        if "401" in str(e) or "Unauthorized" in str(e):
+            print("✅ Health check with invalid API key: Correctly rejected")
+        else:
+            print(f"❌ Health check with invalid API key: Unexpected error - {e}")
+    
+    # Test with valid API key (if configured)
+    valid_api_key = servers["depth-anything-v2-lab"]["api_key"]
+    if valid_api_key and valid_api_key != "sk-your-api-key-here":
+        try:
+            health = get_health(base_url, api_key=valid_api_key)
+            print("✅ Health check with valid API key: SUCCESS")
+        except Exception as e:
+            print(f"❌ Health check with valid API key: {e}")
+    else:
+        print("ℹ️  Skipping valid API key test (not configured)")
+
+
 if __name__ == "__main__":
-    test_endpoints() 
+    test_endpoints()
+    test_authentication() 

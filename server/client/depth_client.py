@@ -35,10 +35,18 @@ def decode_depth_map(depth_base64: str) -> np.ndarray:
     return np.array(depth_image)
 
 
+def _get_headers(api_key: Optional[str] = None) -> Dict[str, str]:
+    """Get headers for API requests"""
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    return headers
+
+
 def predict_pointcloud(image: Optional[str] = None, image_url: Optional[str] = None,
                       camera_intrinsics: Optional[Dict] = None, base_url: str = "http://localhost:8000",
                       encoder: str = "vitl", dataset: str = "hypersim", model_input_size: int = 518,
-                      max_depth: float = 1.0) -> Dict:
+                      max_depth: float = 1.0, api_key: Optional[str] = None) -> Dict:
     """Get pointcloud from depth prediction"""
     payload = {
         'camera_intrinsics': camera_intrinsics,
@@ -55,7 +63,8 @@ def predict_pointcloud(image: Optional[str] = None, image_url: Optional[str] = N
     else:
         raise ValueError("Either image or image_url must be provided")
     
-    response = requests.post(f"{base_url}/pc", json=payload)
+    headers = _get_headers(api_key)
+    response = requests.post(f"{base_url}/pc", json=payload, headers=headers)
     response.raise_for_status()
     return response.json()
 
@@ -63,7 +72,7 @@ def predict_pointcloud(image: Optional[str] = None, image_url: Optional[str] = N
 def predict_metric_depth(image: Optional[str] = None, image_url: Optional[str] = None,
                         camera_intrinsics: Optional[Dict] = None, base_url: str = "http://localhost:8000",
                         encoder: str = "vitl", dataset: str = "hypersim", model_input_size: int = 518,
-                        max_depth: float = 1.0) -> Dict:
+                        max_depth: float = 1.0, api_key: Optional[str] = None) -> Dict:
     """Get metric depth map from depth prediction"""
     payload = {
         'camera_intrinsics': camera_intrinsics,
@@ -80,14 +89,16 @@ def predict_metric_depth(image: Optional[str] = None, image_url: Optional[str] =
     else:
         raise ValueError("Either image or image_url must be provided")
     
-    response = requests.post(f"{base_url}/metric_depth", json=payload)
+    headers = _get_headers(api_key)
+    response = requests.post(f"{base_url}/metric_depth", json=payload, headers=headers)
     response.raise_for_status()
     return response.json()
 
 
 def predict_relative_depth(image: Optional[str] = None, image_url: Optional[str] = None,
                           camera_intrinsics: Optional[Dict] = None, base_url: str = "http://localhost:8000",
-                          encoder: str = "vitl", dataset: str = "hypersim", model_input_size: int = 518) -> Dict:
+                          encoder: str = "vitl", dataset: str = "hypersim", model_input_size: int = 518,
+                          api_key: Optional[str] = None) -> Dict:
     """Get relative depth map from depth prediction"""
     payload = {
         'camera_intrinsics': camera_intrinsics,
@@ -103,13 +114,15 @@ def predict_relative_depth(image: Optional[str] = None, image_url: Optional[str]
     else:
         raise ValueError("Either image or image_url must be provided")
     
-    response = requests.post(f"{base_url}/rel_depth", json=payload)
+    headers = _get_headers(api_key)
+    response = requests.post(f"{base_url}/rel_depth", json=payload, headers=headers)
     response.raise_for_status()
     return response.json()
 
 
-def get_health(base_url: str = "http://localhost:8000") -> Dict:
+def get_health(base_url: str = "http://localhost:8000", api_key: Optional[str] = None) -> Dict:
     """Get server health status"""
-    response = requests.get(f"{base_url}/health")
+    headers = _get_headers(api_key)
+    response = requests.get(f"{base_url}/health", headers=headers)
     response.raise_for_status()
     return response.json() 
