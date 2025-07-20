@@ -1,5 +1,3 @@
 dany2:
   base_url: "http://10.0.0.211:8069"
   api_key: "smdepth"  # null
-  model: "depth-anything-v2"
-  description: "robolidar" 
