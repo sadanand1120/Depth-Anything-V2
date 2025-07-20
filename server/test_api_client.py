@@ -68,7 +68,7 @@ def test_endpoints():
             max_depth=1.0,
             api_key=api_key
         )
-        print(f"✅ Pointcloud: shape {pc_result['shape']}")
+        print(f"✅ Pointcloud: shape {pc_result['pointcloud_shape']}")
         
         # Test metric depth
         metric_result = predict_metric_depth(
@@ -90,7 +90,7 @@ def test_endpoints():
         print(f"✅ Relative depth: shape {rel_result['shape']}, range [{rel_result['min']:.3f}, {rel_result['max']:.3f}]")
         
         # Decode and visualize
-        pointcloud = decode_pointcloud(pc_result['pointcloud'], pc_result['shape'])
+        pointcloud = decode_pointcloud(pc_result['pointcloud'], pc_result['pointcloud_shape'])
         depth_map = decode_depth_map(metric_result['depth_map'])
         
         print(f"✅ Decoded pointcloud: {pointcloud.shape}")

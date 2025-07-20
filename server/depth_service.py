@@ -8,9 +8,6 @@ import torch
 import sys
 import os
 
-# Add parent directory to path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from depthany2.metric_main import DepthAny2
 from depthany2.minimal_pts import depth2points
 
@@ -18,13 +15,31 @@ from depthany2.minimal_pts import depth2points
 class DepthService:
     def __init__(self):
         self.models = {}
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        # Get all available GPUs from CUDA_VISIBLE_DEVICES
+        self.gpu_count = torch.cuda.device_count()
+        self.current_gpu = 0
+        
+        if self.gpu_count > 0:
+            self.device = torch.device('cuda')
+            print(f"✅ Using {self.gpu_count} GPU(s): {[f'cuda:{i}' for i in range(self.gpu_count)]}")
+        else:
+            self.device = torch.device('cpu')
+            print("ℹ️  No GPUs available, using CPU")
+    
+    def _get_next_gpu(self):
+        """Get next GPU in round-robin fashion"""
+        if self.gpu_count == 0:
+            return self.device
+        gpu_id = self.current_gpu % self.gpu_count
+        self.current_gpu += 1
+        return torch.device(f'cuda:{gpu_id}')
     
     def _get_model(self, encoder, dataset, model_input_size, max_depth):
         key = f"{encoder}_{dataset}_{model_input_size}_{max_depth}"
         if key not in self.models:
+            gpu_device = self._get_next_gpu()
             self.models[key] = DepthAny2(
-                device=self.device,
+                device=gpu_device,
                 encoder=encoder,
                 dataset=dataset,
                 model_input_size=model_input_size,
@@ -58,35 +73,46 @@ class DepthService:
             ])
         }
     
-    def predict_pointcloud(self, image=None, image_url=None, camera_intrinsics=None, 
-                          encoder="vitl", dataset="hypersim", model_input_size=518, max_depth=1.0):
+    def _predict_depth(self, image=None, image_url=None, encoder="vitl", dataset="hypersim", 
+                      model_input_size=518, max_depth=1.0):
+        """Shared method for depth prediction - eliminates redundant code"""
         img_array = self._get_image(image, image_url)
         model = self._get_model(encoder, dataset, model_input_size, max_depth)
         depth = model.predict(img_array, max_depth=max_depth)
+        return depth
+    
+    def predict_pointcloud(self, image=None, image_url=None, camera_intrinsics=None, 
+                          encoder="vitl", dataset="hypersim", model_input_size=518, max_depth=1.0):
+        depth = self._predict_depth(image, image_url, encoder, dataset, model_input_size, max_depth)
         points = depth2points(depth, self._camera_intrinsics_to_dict(camera_intrinsics))
         
-        # Encode as base64
+        # Encode pointcloud as base64
         points_flat = points.astype(np.float32)
         points_base64 = base64.b64encode(points_flat.tobytes()).decode('utf-8')
         
+        # Encode depth as base64 for consistency with other endpoints
+        depth_flat = depth.astype(np.float32)
+        depth_base64 = base64.b64encode(depth_flat.tobytes()).decode('utf-8')
+        
         return {
             'pointcloud': points_base64,
-            'shape': points.shape
+            'pointcloud_shape': points.shape,
+            'depth_map': depth_base64,
+            'depth_shape': depth.shape,
+            'min': float(depth.min()),
+            'max': float(depth.max())
         }
     
     def predict_metric_depth(self, image=None, image_url=None, camera_intrinsics=None,
                             encoder="vitl", dataset="hypersim", model_input_size=518, max_depth=1.0):
-        img_array = self._get_image(image, image_url)
-        model = self._get_model(encoder, dataset, model_input_size, max_depth)
-        depth = model.predict(img_array, max_depth=max_depth)
+        depth = self._predict_depth(image, image_url, encoder, dataset, model_input_size, max_depth)
         
-        # Encode as base64
-        depth_normalized = ((depth - depth.min()) / (depth.max() - depth.min()) * 255).astype(np.uint8)
-        _, depth_buffer = cv2.imencode('.png', depth_normalized)
-        depth_base64 = base64.b64encode(depth_buffer).decode('utf-8')
+        # Return raw metric depth values (no normalization)
+        depth_flat = depth.astype(np.float32)
+        depth_base64 = base64.b64encode(depth_flat.tobytes()).decode('utf-8')
         
         return {
-            'depth_map': f"data:image/png;base64,{depth_base64}",
+            'depth_map': depth_base64,
             'shape': depth.shape,
             'min': float(depth.min()),
             'max': float(depth.max())
@@ -101,9 +127,6 @@ class DepthService:
         return {
             'status': 'healthy',
             'device': str(self.device),
+            'gpu_count': self.gpu_count,
             'models_loaded': list(self.models.keys())
-        }
-
-
-# Global service instance
-depth_service = DepthService() 
+        } 

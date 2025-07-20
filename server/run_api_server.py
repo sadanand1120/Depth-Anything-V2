@@ -16,20 +16,18 @@ def main():
     parser.add_argument("--port", type=int, default=8000, help="Port to bind")
     parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
     parser.add_argument("--api-key", type=str, help="API key for authentication")
-    parser.add_argument("--require-auth", action="store_true", help="Require API key authentication")
     
     args = parser.parse_args()
     
     # Configure API key authentication
     if args.api_key:
         app.API_KEY = args.api_key
-        print("✅ API key configured")
-    
-    if args.require_auth:
         app.REQUIRE_AUTH = True
-        print("✅ Authentication required")
+        print("✅ API key configured - authentication required")
     else:
-        print("ℹ️  Authentication disabled (use --require-auth to enable)")
+        app.API_KEY = None
+        app.REQUIRE_AUTH = False
+        print("ℹ️  No API key - authentication disabled")
     
     print(f"Starting server on {args.host}:{args.port}")
     print(f"API docs: http://{args.host}:{args.port}/docs")

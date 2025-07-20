@@ -28,11 +28,10 @@ def decode_pointcloud(pointcloud_base64: str, shape: list) -> np.ndarray:
 
 def decode_depth_map(depth_base64: str) -> np.ndarray:
     """Decode base64 depth map to numpy array"""
-    if depth_base64.startswith('data:image/png;base64,'):
-        depth_base64 = depth_base64.split(',')[1]
+    # Handle raw float32 depth data (new format)
     depth_bytes = base64.b64decode(depth_base64)
-    depth_image = Image.open(io.BytesIO(depth_bytes))
-    return np.array(depth_image)
+    depth_flat = np.frombuffer(depth_bytes, dtype=np.float32)
+    return depth_flat
 
 
 def _get_headers(api_key: Optional[str] = None) -> Dict[str, str]:

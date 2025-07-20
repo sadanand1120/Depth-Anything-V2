@@ -22,7 +22,11 @@ class DepthRequest(BaseModel):
 
 class PointCloudResponse(BaseModel):
     pointcloud: str = Field(..., description="Base64 encoded point cloud")
-    shape: list = Field(..., description="Point cloud shape")
+    pointcloud_shape: list = Field(..., description="Point cloud shape")
+    depth_map: str = Field(..., description="Base64 encoded depth map")
+    depth_shape: list = Field(..., description="Depth map shape")
+    min: float = Field(..., description="Min depth value")
+    max: float = Field(..., description="Max depth value")
 
 
 class DepthResponse(BaseModel):
@@ -35,4 +39,5 @@ class DepthResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     device: str
+    gpu_count: int = Field(..., description="Number of available GPUs")
     models_loaded: list 
