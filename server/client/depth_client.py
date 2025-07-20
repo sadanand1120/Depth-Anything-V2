@@ -26,11 +26,15 @@ def decode_pointcloud(pointcloud_base64: str, shape: list) -> np.ndarray:
     return points_flat.reshape(shape)
 
 
-def decode_depth_map(depth_base64: str) -> np.ndarray:
+def decode_depth_map(depth_base64: str, shape: Optional[list] = None) -> np.ndarray:
     """Decode base64 depth map to numpy array"""
     # Handle raw float32 depth data (new format)
     depth_bytes = base64.b64decode(depth_base64)
     depth_flat = np.frombuffer(depth_bytes, dtype=np.float32)
+    
+    # Reshape if shape is provided
+    if shape:
+        return depth_flat.reshape(shape)
     return depth_flat
 
 
@@ -69,12 +73,11 @@ def predict_pointcloud(image: Optional[str] = None, image_url: Optional[str] = N
 
 
 def predict_metric_depth(image: Optional[str] = None, image_url: Optional[str] = None,
-                        camera_intrinsics: Optional[Dict] = None, base_url: str = "http://localhost:8000",
+                        base_url: str = "http://localhost:8000",
                         encoder: str = "vitl", dataset: str = "hypersim", model_input_size: int = 518,
                         max_depth: float = 1.0, api_key: Optional[str] = None) -> Dict:
     """Get metric depth map from depth prediction"""
     payload = {
-        'camera_intrinsics': camera_intrinsics,
         'encoder': encoder,
         'dataset': dataset,
         'model_input_size': model_input_size,
@@ -95,12 +98,11 @@ def predict_metric_depth(image: Optional[str] = None, image_url: Optional[str] =
 
 
 def predict_relative_depth(image: Optional[str] = None, image_url: Optional[str] = None,
-                          camera_intrinsics: Optional[Dict] = None, base_url: str = "http://localhost:8000",
+                          base_url: str = "http://localhost:8000",
                           encoder: str = "vitl", dataset: str = "hypersim", model_input_size: int = 518,
                           api_key: Optional[str] = None) -> Dict:
     """Get relative depth map from depth prediction"""
     payload = {
-        'camera_intrinsics': camera_intrinsics,
         'encoder': encoder,
         'dataset': dataset,
         'model_input_size': model_input_size

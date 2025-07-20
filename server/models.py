@@ -1,6 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, Union
-import base64
+from typing import Optional
 
 
 class CameraIntrinsics(BaseModel):
@@ -13,7 +12,7 @@ class CameraIntrinsics(BaseModel):
 class DepthRequest(BaseModel):
     image: Optional[str] = Field(None, description="Base64 encoded image")
     image_url: Optional[str] = Field(None, description="URL to image")
-    camera_intrinsics: CameraIntrinsics
+    camera_intrinsics: Optional[CameraIntrinsics] = Field(None, description="Camera intrinsics (required for pointcloud)")
     encoder: str = Field(default="vitl", description="Model encoder")
     dataset: str = Field(default="hypersim", description="Dataset type")
     model_input_size: int = Field(default=518, description="Model input size")
@@ -39,5 +38,9 @@ class DepthResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     device: str
+    worker_id: int = Field(..., description="Worker ID")
+    gpu_id: Optional[int] = Field(None, description="GPU ID (None if using CPU)")
     gpu_count: int = Field(..., description="Number of available GPUs")
-    models_loaded: list 
+    models_loaded: list = Field(..., description="List of model keys loaded")
+    total_model_instances: int = Field(..., description="Total model instances across all GPUs")
+    request_counter: int = Field(..., description="Total requests processed (for round-robin tracking)") 

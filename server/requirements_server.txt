@@ -1,14 +1,22 @@
-# install manually
-#torch
-#torchvision
+# Core ML dependencies (install manually based on your CUDA version)
+# torch
+# torchvision
 
+# Web framework and API
 fastapi
 uvicorn[standard]
 pydantic
-python-multipart
+
+# Image processing
 Pillow
 numpy
 opencv-python
+
+# HTTP and data
 requests
-open3d==0.16.0
-pyyaml
+
+# Additional dependencies for production
+python-json-logger  # For structured logging
+
+# Authentication and security
+fastapi-security  # For HTTPBearer authentication

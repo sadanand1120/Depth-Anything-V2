@@ -22,11 +22,11 @@ def test_endpoints():
     print("Testing Depth Anything V2 API endpoints...")
     
     # Load config
-    with open("server/config/servers.yaml", "r") as f:
+    with open("server/client/servers.yaml", "r") as f:
         servers = yaml.safe_load(f)
     
-    base_url = servers["depth-anything-v2-local"]["base_url"]
-    api_key = servers["depth-anything-v2-local"]["api_key"]
+    base_url = servers["dany2"]["base_url"]
+    api_key = servers["dany2"]["api_key"]
     
     # Load camera intrinsics (use example data if not available)
     try:
@@ -73,7 +73,6 @@ def test_endpoints():
         # Test metric depth
         metric_result = predict_metric_depth(
             image=image_base64,
-            camera_intrinsics=camera_intrinsics,
             base_url=base_url,
             max_depth=1.0,
             api_key=api_key
@@ -83,7 +82,6 @@ def test_endpoints():
         # Test relative depth
         rel_result = predict_relative_depth(
             image=image_base64,
-            camera_intrinsics=camera_intrinsics,
             base_url=base_url,
             api_key=api_key
         )
@@ -91,7 +89,7 @@ def test_endpoints():
         
         # Decode and visualize
         pointcloud = decode_pointcloud(pc_result['pointcloud'], pc_result['pointcloud_shape'])
-        depth_map = decode_depth_map(metric_result['depth_map'])
+        depth_map = decode_depth_map(metric_result['depth_map'], metric_result['shape'])
         
         print(f"✅ Decoded pointcloud: {pointcloud.shape}")
         print(f"✅ Decoded depth map: {depth_map.shape}")
@@ -115,10 +113,10 @@ def test_authentication():
     print("\n🔐 Testing API Key Authentication...")
     
     # Load config
-    with open("server/config/servers.yaml", "r") as f:
+    with open("server/client/servers.yaml", "r") as f:
         servers = yaml.safe_load(f)
     
-    base_url = servers["depth-anything-v2-local"]["base_url"]
+    base_url = servers["dany2"]["base_url"]
     
     # Test without API key (should work if auth is disabled)
     try:
@@ -138,8 +136,8 @@ def test_authentication():
             print(f"❌ Health check with invalid API key: Unexpected error - {e}")
     
     # Test with valid API key (if configured)
-    valid_api_key = servers["depth-anything-v2-lab"]["api_key"]
-    if valid_api_key and valid_api_key != "sk-your-api-key-here":
+    valid_api_key = servers["dany2"]["api_key"]
+    if valid_api_key and valid_api_key != "smdepth":
         try:
             health = get_health(base_url, api_key=valid_api_key)
             print("✅ Health check with valid API key: SUCCESS")

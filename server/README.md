@@ -22,20 +22,48 @@ The API supports OpenAI-style API key authentication using Bearer tokens.
 
 ### Server Configuration
 
-**Start server with API key (authentication required):**
+**Basic usage:**
 ```bash
+# Start server with API key (authentication required)
 python server/run_api_server.py --api-key "sk-your-api-key"
-```
 
-**Start server without authentication (no API key needed):**
-```bash
+# Start server without authentication (no API key needed)
 python server/run_api_server.py
 ```
+
+**Advanced configuration:**
+```bash
+# Production server with multiple workers
+python server/run_api_server.py \
+  --host 0.0.0.0 \
+  --port 8000 \
+  --workers 4 \
+  --api-key "sk-your-api-key" \
+  --log-level info \
+  --max-requests 1000
+
+# Development server with auto-reload
+python server/run_api_server.py \
+  --host localhost \
+  --port 8000 \
+  --reload \
+  --log-level debug
+```
+
+**Available options:**
+- `--host`: Host to bind (default: 0.0.0.0)
+- `--port`: Port to bind (default: 8000)
+- `--workers`: Number of worker processes (default: 1)
+- `--reload`: Enable auto-reload for development
+- `--api-key`: API key for authentication
+- `--log-level`: Log level (debug/info/warning/error, default: info)
+- `--max-requests`: Max requests per worker before restart (default: 1000)
+- `--max-requests-jitter`: Jitter for max requests (default: 100)
 
 ### Client Usage with Authentication
 
 ```python
-from server.client.depth_client import predict_pointcloud
+from server.client.depth_client import predict_pointcloud, predict_relative_depth
 
 # With API key (if server requires authentication)
 result = predict_pointcloud(
@@ -46,16 +74,15 @@ result = predict_pointcloud(
 )
 
 # Without API key (if server doesn't require authentication)
-result = predict_pointcloud(
+result = predict_relative_depth(
     image=image_base64,
-    camera_intrinsics=cam_int,
     base_url="http://your-server:8000"
 )
 ```
 
 ### Configuration File
 
-Update `server/config/servers.yaml` with your API keys:
+Update `server/client/servers.yaml` with your API keys:
 
 ```yaml
 depth-anything-v2-secure:
@@ -71,14 +98,13 @@ server/
 ├── api_server.py             # FastAPI app with 3 endpoints
 ├── models.py                 # Request/response models
 ├── depth_service.py          # Core prediction service
-├── run_api_server.py         # Server startup
+├── run_api_server.py         # Server startup with comprehensive config
 ├── test_api_client.py        # Client test script
 ├── requirements_server.txt   # Server dependencies
 ├── requirements_client.txt   # Client dependencies
-├── client/                   # Client library
-│   └── depth_client.py
-└── config/                   # Server configs
-    └── servers.yaml
+└── client/                   # Client library
+    ├── depth_client.py
+    └── servers.yaml          # Server configurations
 ```
 
 ## 🔧 API Endpoints
@@ -134,12 +160,6 @@ Content-Type: application/json
 ```json
 {
   "image": "base64_encoded_cv2_bgr_image",
-  "camera_intrinsics": {
-    "fx": 1000.0,
-    "fy": 1000.0,
-    "cx": 640.0,
-    "cy": 480.0
-  },
   "max_depth": 1.0,
   "encoder": "vitl",
   "dataset": "hypersim",
@@ -170,12 +190,6 @@ Content-Type: application/json
 ```json
 {
   "image": "base64_encoded_cv2_bgr_image",
-  "camera_intrinsics": {
-    "fx": 1000.0,
-    "fy": 1000.0,
-    "cx": 640.0,
-    "cy": 480.0
-  },
   "encoder": "vitl",
   "dataset": "hypersim",
   "model_input_size": 518
@@ -202,8 +216,12 @@ Content-Type: application/json
 {
   "status": "healthy",
   "device": "cuda:0",
+  "worker_id": 0,
+  "gpu_id": 0,
   "gpu_count": 2,
-  "models_loaded": ["vitl_hypersim_518_1.0"]
+  "models_loaded": ["vitl_hypersim_518"],
+  "total_model_instances": 2,
+  "request_counter": 15
 }
 ```
 
@@ -216,7 +234,7 @@ from server.client.depth_client import encode_image, predict_pointcloud, decode_
 # Encode image
 image_base64 = encode_image("path/to/image.jpg")
 
-# Get pointcloud
+# Get pointcloud (requires camera intrinsics)
 result = predict_pointcloud(
     image=image_base64,
     camera_intrinsics={'fx': 1000.0, 'fy': 1000.0, 'cx': 640.0, 'cy': 480.0},
@@ -225,9 +243,16 @@ result = predict_pointcloud(
     api_key="sk-your-api-key"  # Optional
 )
 
+# Get relative depth (no camera intrinsics needed)
+rel_result = predict_relative_depth(
+    image=image_base64,
+    base_url="http://your-server:8000",
+    api_key="sk-your-api-key"  # Optional
+)
+
 # Decode results
 pointcloud = decode_pointcloud(result['pointcloud'], result['pointcloud_shape'])
-depth_map = decode_depth_map(result['depth_map'])
+depth_map = decode_depth_map(result['depth_map'], result['depth_shape'])
 
 print(f"Pointcloud shape: {pointcloud.shape}")
 print(f"Depth map shape: {depth_map.shape}")
@@ -237,16 +262,16 @@ print(f"Depth map shape: {depth_map.shape}")
 ```python
 from server.client.depth_client import *
 
-# Point cloud (includes both pointcloud and depth)
+# Point cloud (includes both pointcloud and depth) - requires camera intrinsics
 pc_result = predict_pointcloud(image=image_base64, camera_intrinsics=cam_int, 
                              max_depth=1.0, api_key="sk-your-api-key")
 
-# Metric depth
-metric_result = predict_metric_depth(image=image_base64, camera_intrinsics=cam_int, 
+# Metric depth - no camera intrinsics needed
+metric_result = predict_metric_depth(image=image_base64, 
                                    max_depth=1.0, api_key="sk-your-api-key")
 
-# Relative depth
-rel_result = predict_relative_depth(image=image_base64, camera_intrinsics=cam_int, 
+# Relative depth - no camera intrinsics needed
+rel_result = predict_relative_depth(image=image_base64, 
                                   api_key="sk-your-api-key")
 
 # Health check
@@ -255,7 +280,7 @@ health = get_health("http://your-server:8000", api_key="sk-your-api-key")
 
 ## ⚙️ Configuration
 
-### Server Config (`server/config/servers.yaml`)
+### Server Config (`server/client/servers.yaml`)
 ```yaml
 depth-anything-v2-lab:
   base_url: "http://your-lab-server:8000"
@@ -271,8 +296,13 @@ git clone <your-repo>
 cd Depth-Anything-V2
 pip install -r server/requirements_server.txt
 
-# Start with authentication
-python server/run_api_server.py --host 0.0.0.0 --port 8000 --api-key "sk-your-api-key"
+# Start with authentication and multiple workers
+python server/run_api_server.py \
+  --host 0.0.0.0 \
+  --port 8000 \
+  --workers 4 \
+  --api-key "sk-your-api-key" \
+  --log-level info
 ```
 
 ### From Any Client
@@ -280,10 +310,22 @@ python server/run_api_server.py --host 0.0.0.0 --port 8000 --api-key "sk-your-ap
 pip install -r server/requirements_client.txt
 
 # Use in your code
-from server.client.depth_client import predict_pointcloud
+from server.client.depth_client import predict_pointcloud, predict_relative_depth
+
+# Pointcloud (requires camera intrinsics)
 result = predict_pointcloud(image=image_base64, camera_intrinsics=cam_int, 
                           base_url="http://your-lab-server:8000",
                           api_key="sk-your-api-key")
+
+# Metric depth (no camera intrinsics needed)
+metric_result = predict_metric_depth(image=image_base64,
+                                   base_url="http://your-lab-server:8000",
+                                   api_key="sk-your-api-key")
+
+# Relative depth (no camera intrinsics needed)
+rel_result = predict_relative_depth(image=image_base64,
+                                  base_url="http://your-lab-server:8000",
+                                  api_key="sk-your-api-key")
 ```
 
 ## 🔍 API Documentation
@@ -303,11 +345,12 @@ FastAPI automatically generates interactive API documentation at `/docs` when yo
 - **Model Caching**: Models cached in memory for speed
 - **Image Support**: Accepts base64 or URL (like OpenAI)
 - **GPU Auto-detect**: Falls back to CPU if CUDA unavailable
-- **Multi-GPU Support**: Round-robin distribution across available GPUs (set CUDA_VISIBLE_DEVICES)
+- **Multi-GPU Support**: Request-level round-robin across all GPUs (all models loaded on all GPUs)
 - **Authentication**: Automatic - enabled if API key provided, disabled if not
 - **Flexible Auth**: Simple on/off based on API key presence
 - **Raw Depth Values**: Returns raw float32 depth arrays (no normalization)
 - **Enhanced PointCloud**: Includes both pointcloud and depth information
+- **Camera Intrinsics**: Only required for `/pc` endpoint, not needed for `/metric_depth` or `/rel_depth`
 
 ## 🔍 CODE UNDERSTANDING
 
@@ -327,6 +370,7 @@ FastAPI automatically generates interactive API documentation at `/docs` when yo
 - **NEW**: Includes authentication middleware with `verify_api_key()` dependency
 - **NEW**: VLLM-style request logging with timestamps and IP addresses
 - **NEW**: Async/await patterns for better concurrency
+- **UPDATED**: Camera intrinsics validation for pointcloud endpoint
 
 **3. Data Models: `models.py`**
 - Pydantic models for request/response validation
@@ -334,15 +378,18 @@ FastAPI automatically generates interactive API documentation at `/docs` when yo
 - `PointCloudResponse`: Output for `/pc` endpoint (includes both pointcloud and depth)
 - `DepthResponse`: Output for depth map endpoints
 - `HealthResponse`: Server status information with GPU count
+- **UPDATED**: Camera intrinsics is now optional (only required for pointcloud)
 
 **4. Core Logic: `depth_service.py`**
 - **Main service class**: `DepthService` wraps the original `DepthAny2` model
-- **Model caching**: Stores models in memory by encoder/dataset/size/depth combination
-- **Multi-GPU support**: Round-robin distribution across available GPUs
+- **Model caching**: Stores models in memory by encoder/dataset/size combination (no max_depth)
+- **Multi-GPU support**: All models loaded on all GPUs, request-level round-robin distribution
 - **Image processing**: Handles base64 decoding and URL fetching
 - **Three prediction methods**: `predict_pointcloud()`, `predict_metric_depth()`, `predict_relative_depth()`
-- **Camera intrinsics**: Converts Pydantic model to numpy array format
+- **Camera intrinsics**: Converts Pydantic model to numpy array format (only for pointcloud)
 - **Raw depth values**: Returns unnormalized float32 depth arrays
+- **Runtime max_depth**: Models initialized with 1.0, max_depth overridden at prediction time
+- **UPDATED**: Removed unused camera_intrinsics parameter from predict_relative_depth
 
 **5. Client Library: `client/depth_client.py`**
 - Functions to call the API endpoints from Python
@@ -350,6 +397,7 @@ FastAPI automatically generates interactive API documentation at `/docs` when yo
 - Pointcloud and depth map decoding functions (updated for raw float32 format)
 - Error handling and response validation
 - **NEW**: API key support in all functions with `_get_headers()` helper
+- **UPDATED**: Removed camera_intrinsics parameter from predict_relative_depth
 
 **6. Test Script: `test_api_client.py`**
 - Demonstrates how to use all endpoints
@@ -358,6 +406,8 @@ FastAPI automatically generates interactive API documentation at `/docs` when yo
 - Visualizes results with matplotlib
 - **NEW**: Includes authentication testing with valid/invalid API keys
 - **UPDATED**: Fixed shape references for new response formats
+- **UPDATED**: Uses servers.yaml from client directory
+- **UPDATED**: Removed camera_intrinsics from relative depth test
 
 ### Data Flow
 
@@ -370,9 +420,9 @@ Client Request → api_server.py → Authentication → models.py (validation) �
 3. **Pydantic validates** the request using models in `models.py`
 4. **Service processes** the request in `depth_service.py`:
    - Decodes image (base64 or URL)
-   - Gets cached model or loads new one (distributed across GPUs)
-   - Runs depth prediction
-   - Converts to pointcloud if needed
+   - Gets cached model from round-robin GPU selection (all models loaded on all GPUs)
+   - Runs depth prediction with runtime max_depth override
+   - Converts to pointcloud if needed (requires camera intrinsics for 3D conversion)
    - Encodes response as base64 (raw float32 format)
 5. **Response returned** through FastAPI with proper HTTP status
 
@@ -394,4 +444,4 @@ Client Request → api_server.py → Authentication → models.py (validation) �
 - **Add new endpoints**: Add new routes in `api_server.py` and methods in `depth_service.py`
 - **Add caching**: Implement Redis/database caching in `depth_service.py`
 - **Add logging**: ✅ **COMPLETED** - Structured logging throughout the service
-- **Add monitoring**: Add metrics collection and health checks 
+- **Add monitoring**: Add metrics collection and health checks

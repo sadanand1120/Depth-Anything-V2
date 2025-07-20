@@ -1,12 +1,7 @@
 import time
-import uuid
-import base64
-import numpy as np
-import os
 import asyncio
 import logging
-from datetime import datetime
-from fastapi import FastAPI, HTTPException, Depends, Header, Request
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import uvicorn
@@ -33,6 +28,12 @@ REQUIRE_AUTH = False
 
 # Create service instance
 depth_service = DepthService()
+
+# Function to configure API key (called from run_api_server.py)
+def configure_auth(api_key: str = None, require_auth: bool = False):
+    global API_KEY, REQUIRE_AUTH
+    API_KEY = api_key
+    REQUIRE_AUTH = require_auth
 
 app.add_middleware(
     CORSMiddleware,
@@ -85,9 +86,12 @@ async def health():
     return depth_service.get_health()
 
 @app.post("/pc", response_model=PointCloudResponse)
-async def get_pointcloud(request: Request, depth_request: DepthRequest, _: bool = Depends(verify_api_key)):
+async def get_pointcloud(depth_request: DepthRequest, _: bool = Depends(verify_api_key)):
     if not depth_request.max_depth:
         raise HTTPException(status_code=400, detail="max_depth is required for pointcloud")
+    
+    if not depth_request.camera_intrinsics:
+        raise HTTPException(status_code=400, detail="camera_intrinsics is required for pointcloud")
     
     try:
         # Run prediction in thread pool to avoid blocking
@@ -107,7 +111,7 @@ async def get_pointcloud(request: Request, depth_request: DepthRequest, _: bool 
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/metric_depth", response_model=DepthResponse)
-async def get_metric_depth(request: Request, depth_request: DepthRequest, _: bool = Depends(verify_api_key)):
+async def get_metric_depth(depth_request: DepthRequest, _: bool = Depends(verify_api_key)):
     if not depth_request.max_depth:
         raise HTTPException(status_code=400, detail="max_depth is required for metric depth")
     
@@ -118,7 +122,6 @@ async def get_metric_depth(request: Request, depth_request: DepthRequest, _: boo
             depth_service.predict_metric_depth,
             depth_request.image,
             depth_request.image_url,
-            depth_request.camera_intrinsics,
             depth_request.encoder,
             depth_request.dataset,
             depth_request.model_input_size,
@@ -129,7 +132,7 @@ async def get_metric_depth(request: Request, depth_request: DepthRequest, _: boo
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/rel_depth", response_model=DepthResponse)
-async def get_relative_depth(request: Request, depth_request: DepthRequest, _: bool = Depends(verify_api_key)):
+async def get_relative_depth(depth_request: DepthRequest, _: bool = Depends(verify_api_key)):
     try:
         # Run prediction in thread pool to avoid blocking
         result = await asyncio.get_event_loop().run_in_executor(
@@ -137,7 +140,6 @@ async def get_relative_depth(request: Request, depth_request: DepthRequest, _: b
             depth_service.predict_relative_depth,
             depth_request.image,
             depth_request.image_url,
-            depth_request.camera_intrinsics,
             depth_request.encoder,
             depth_request.dataset,
             depth_request.model_input_size
