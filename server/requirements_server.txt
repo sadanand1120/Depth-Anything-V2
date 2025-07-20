@@ -15,8 +15,6 @@ opencv-python
 # HTTP and data
 requests
 
-# Additional dependencies for production
-python-json-logger  # For structured logging
-
-# Authentication and security
-fastapi-security  # For HTTPBearer authentication
+# Additional dependencies
+python-json-logger
+fastapi-security

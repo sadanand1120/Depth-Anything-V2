@@ -1,5 +1,6 @@
 # HTTP requests
 requests
+aiohttp
 
 # Image processing
 Pillow
@@ -13,7 +14,4 @@ pyyaml
 matplotlib
 
 # Additional utilities
-typing-extensions  # For better type hints
-
-# Async HTTP
-aiohttp
+typing-extensions
