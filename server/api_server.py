@@ -29,11 +29,29 @@ REQUIRE_AUTH = False
 # Create service instance
 depth_service = DepthService()
 
+# Rate limiting: limit concurrent requests to prevent GPU OOM
+# Read from environment variable for multi-worker setup
+import os
+MAX_CONCURRENT_REQUESTS = int(os.environ.get('DEPTHSERVER_MAX_CONCURRENT_REQUESTS', '4'))
+request_semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
+
 # Function to configure API key (called from run_api_server.py)
 def configure_auth(api_key: str = None, require_auth: bool = False):
     global API_KEY, REQUIRE_AUTH
     API_KEY = api_key
     REQUIRE_AUTH = require_auth
+
+# Configure auth from environment variables (for multi-worker setup)
+def configure_auth_from_env():
+    """Configure authentication from environment variables for multi-worker processes"""
+    import os
+    api_key = os.environ.get('DEPTHSERVER_API_KEY')
+    require_auth = os.environ.get('DEPTHSERVER_REQUIRE_AUTH', 'false').lower() == 'true'
+    if api_key or require_auth:
+        configure_auth(api_key=api_key, require_auth=require_auth)
+
+# Configure auth on module import (for multi-worker processes)
+configure_auth_from_env()
 
 app.add_middleware(
     CORSMiddleware,
@@ -94,21 +112,23 @@ async def get_pointcloud(depth_request: DepthRequest, _: bool = Depends(verify_a
         raise HTTPException(status_code=400, detail="camera_intrinsics is required for pointcloud")
     
     try:
-        # Run prediction in thread pool to avoid blocking
-        result = await asyncio.get_event_loop().run_in_executor(
-            None, 
-            depth_service.predict_pointcloud,
-            depth_request.image,
-            depth_request.image_url,
-            depth_request.camera_intrinsics,
-            depth_request.encoder,
-            depth_request.dataset,
-            depth_request.model_input_size,
-            depth_request.max_depth
-        )
+        async with request_semaphore:
+            # Run prediction in thread pool to avoid blocking
+            result = await asyncio.get_event_loop().run_in_executor(
+                None, 
+                depth_service.predict_pointcloud,
+                depth_request.image,
+                depth_request.image_url,
+                depth_request.camera_intrinsics,
+                depth_request.encoder,
+                depth_request.dataset,
+                depth_request.model_input_size,
+                depth_request.max_depth
+            )
         return PointCloudResponse(**result)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error in pointcloud endpoint: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.post("/metric_depth", response_model=DepthResponse)
 async def get_metric_depth(depth_request: DepthRequest, _: bool = Depends(verify_api_key)):
@@ -116,37 +136,41 @@ async def get_metric_depth(depth_request: DepthRequest, _: bool = Depends(verify
         raise HTTPException(status_code=400, detail="max_depth is required for metric depth")
     
     try:
-        # Run prediction in thread pool to avoid blocking
-        result = await asyncio.get_event_loop().run_in_executor(
-            None,
-            depth_service.predict_metric_depth,
-            depth_request.image,
-            depth_request.image_url,
-            depth_request.encoder,
-            depth_request.dataset,
-            depth_request.model_input_size,
-            depth_request.max_depth
-        )
+        async with request_semaphore:
+            # Run prediction in thread pool to avoid blocking
+            result = await asyncio.get_event_loop().run_in_executor(
+                None,
+                depth_service.predict_metric_depth,
+                depth_request.image,
+                depth_request.image_url,
+                depth_request.encoder,
+                depth_request.dataset,
+                depth_request.model_input_size,
+                depth_request.max_depth
+            )
         return DepthResponse(**result)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error in metric_depth endpoint: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.post("/rel_depth", response_model=DepthResponse)
 async def get_relative_depth(depth_request: DepthRequest, _: bool = Depends(verify_api_key)):
     try:
-        # Run prediction in thread pool to avoid blocking
-        result = await asyncio.get_event_loop().run_in_executor(
-            None,
-            depth_service.predict_relative_depth,
-            depth_request.image,
-            depth_request.image_url,
-            depth_request.encoder,
-            depth_request.dataset,
-            depth_request.model_input_size
-        )
+        async with request_semaphore:
+            # Run prediction in thread pool to avoid blocking
+            result = await asyncio.get_event_loop().run_in_executor(
+                None,
+                depth_service.predict_relative_depth,
+                depth_request.image,
+                depth_request.image_url,
+                depth_request.encoder,
+                depth_request.dataset,
+                depth_request.model_input_size
+            )
         return DepthResponse(**result)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error in relative_depth endpoint: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000) 

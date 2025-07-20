@@ -1,0 +1,19 @@
+# HTTP requests
+requests
+
+# Image processing
+Pillow
+numpy
+opencv-python
+
+# Configuration and data
+pyyaml
+
+# Visualization
+matplotlib
+
+# Additional utilities
+typing-extensions  # For better type hints
+
+# Async HTTP
+aiohttp

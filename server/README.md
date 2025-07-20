@@ -18,7 +18,7 @@ python server/test_api_client.py
 
 ## 🔐 Authentication
 
-The API supports OpenAI-style API key authentication using Bearer tokens.
+The API supports OpenAI-style API key authentication using Bearer tokens. If you start the server with an API key, all endpoints except `/health` require authentication.
 
 ### Server Configuration
 
@@ -39,14 +39,12 @@ python server/run_api_server.py \
   --port 8000 \
   --workers 4 \
   --api-key "sk-your-api-key" \
-  --log-level info \
-  --max-requests 1000
+  --log-level info
 
-# Development server with auto-reload
+# Development server with auto-reload (use only for development)
 python server/run_api_server.py \
   --host localhost \
   --port 8000 \
-  --reload \
   --log-level debug
 ```
 
@@ -54,11 +52,8 @@ python server/run_api_server.py \
 - `--host`: Host to bind (default: 0.0.0.0)
 - `--port`: Port to bind (default: 8000)
 - `--workers`: Number of worker processes (default: 1)
-- `--reload`: Enable auto-reload for development
 - `--api-key`: API key for authentication
 - `--log-level`: Log level (debug/info/warning/error, default: info)
-- `--max-requests`: Max requests per worker before restart (default: 1000)
-- `--max-requests-jitter`: Jitter for max requests (default: 100)
 
 ### Client Usage with Authentication
 
@@ -85,20 +80,20 @@ result = predict_relative_depth(
 Update `server/client/servers.yaml` with your API keys:
 
 ```yaml
-depth-anything-v2-secure:
-  base_url: "https://your-secure-server:8000"
-  api_key: "sk-your-actual-api-key-here"
+dany2:
+  base_url: "http://10.0.0.211:8069"
+  api_key: "smdepth"
   model: "depth-anything-v2"
-  description: "Secure server with authentication"
+  description: "robolidar"
 ```
 
 ## 📁 Structure
 ```
 server/
-├── api_server.py             # FastAPI app with 3 endpoints
+├── api_server.py             # FastAPI app with endpoints
 ├── models.py                 # Request/response models
 ├── depth_service.py          # Core prediction service
-├── run_api_server.py         # Server startup with comprehensive config
+├── run_api_server.py         # Server startup with config
 ├── test_api_client.py        # Client test script
 ├── requirements_server.txt   # Server dependencies
 ├── requirements_client.txt   # Client dependencies
@@ -282,10 +277,11 @@ health = get_health("http://your-server:8000", api_key="sk-your-api-key")
 
 ### Server Config (`server/client/servers.yaml`)
 ```yaml
-depth-anything-v2-lab:
-  base_url: "http://your-lab-server:8000"
-  api_key: "sk-your-api-key"  # Set to null for no auth
+dany2:
+  base_url: "http://10.0.0.211:8069"
+  api_key: "smdepth"
   model: "depth-anything-v2"
+  description: "robolidar"
 ```
 
 ## 🚀 Deployment
@@ -351,97 +347,3 @@ FastAPI automatically generates interactive API documentation at `/docs` when yo
 - **Raw Depth Values**: Returns raw float32 depth arrays (no normalization)
 - **Enhanced PointCloud**: Includes both pointcloud and depth information
 - **Camera Intrinsics**: Only required for `/pc` endpoint, not needed for `/metric_depth` or `/rel_depth`
-
-## 🔍 CODE UNDERSTANDING
-
-### Where to Start Reading Code
-
-**1. Entry Point: `run_api_server.py`**
-- Start here to understand how the server starts
-- Simple script that launches the FastAPI app with CLI arguments
-- Sets up host/port and enables auto-reload for development
-- **NEW**: Configures API key authentication via command line arguments
-
-**2. API Layer: `api_server.py`**
-- FastAPI application with 3 main endpoints (`/pc`, `/metric_depth`, `/rel_depth`)
-- Each endpoint validates requests using Pydantic models from `models.py`
-- Calls the core service in `depth_service.py` for actual predictions
-- Handles HTTP errors and response formatting
-- **NEW**: Includes authentication middleware with `verify_api_key()` dependency
-- **NEW**: VLLM-style request logging with timestamps and IP addresses
-- **NEW**: Async/await patterns for better concurrency
-- **UPDATED**: Camera intrinsics validation for pointcloud endpoint
-
-**3. Data Models: `models.py`**
-- Pydantic models for request/response validation
-- `DepthRequest`: Input payload for all endpoints (image, camera_intrinsics, etc.)
-- `PointCloudResponse`: Output for `/pc` endpoint (includes both pointcloud and depth)
-- `DepthResponse`: Output for depth map endpoints
-- `HealthResponse`: Server status information with GPU count
-- **UPDATED**: Camera intrinsics is now optional (only required for pointcloud)
-
-**4. Core Logic: `depth_service.py`**
-- **Main service class**: `DepthService` wraps the original `DepthAny2` model
-- **Model caching**: Stores models in memory by encoder/dataset/size combination (no max_depth)
-- **Multi-GPU support**: All models loaded on all GPUs, request-level round-robin distribution
-- **Image processing**: Handles base64 decoding and URL fetching
-- **Three prediction methods**: `predict_pointcloud()`, `predict_metric_depth()`, `predict_relative_depth()`
-- **Camera intrinsics**: Converts Pydantic model to numpy array format (only for pointcloud)
-- **Raw depth values**: Returns unnormalized float32 depth arrays
-- **Runtime max_depth**: Models initialized with 1.0, max_depth overridden at prediction time
-- **UPDATED**: Removed unused camera_intrinsics parameter from predict_relative_depth
-
-**5. Client Library: `client/depth_client.py`**
-- Functions to call the API endpoints from Python
-- Image encoding/decoding utilities
-- Pointcloud and depth map decoding functions (updated for raw float32 format)
-- Error handling and response validation
-- **NEW**: API key support in all functions with `_get_headers()` helper
-- **UPDATED**: Removed camera_intrinsics parameter from predict_relative_depth
-
-**6. Test Script: `test_api_client.py`**
-- Demonstrates how to use all endpoints
-- Loads camera intrinsics from YAML file
-- Tests health, pointcloud, metric depth, and relative depth endpoints
-- Visualizes results with matplotlib
-- **NEW**: Includes authentication testing with valid/invalid API keys
-- **UPDATED**: Fixed shape references for new response formats
-- **UPDATED**: Uses servers.yaml from client directory
-- **UPDATED**: Removed camera_intrinsics from relative depth test
-
-### Data Flow
-
-```
-Client Request → api_server.py → Authentication → models.py (validation) → depth_service.py → DepthAny2 → Response
-```
-
-1. **Request comes in** to FastAPI endpoint in `api_server.py`
-2. **Authentication check** verifies API key if enabled
-3. **Pydantic validates** the request using models in `models.py`
-4. **Service processes** the request in `depth_service.py`:
-   - Decodes image (base64 or URL)
-   - Gets cached model from round-robin GPU selection (all models loaded on all GPUs)
-   - Runs depth prediction with runtime max_depth override
-   - Converts to pointcloud if needed (requires camera intrinsics for 3D conversion)
-   - Encodes response as base64 (raw float32 format)
-5. **Response returned** through FastAPI with proper HTTP status
-
-### Key Dependencies
-
-- **FastAPI**: Web framework for API endpoints
-- **Pydantic**: Data validation and serialization
-- **DepthAny2**: Original depth prediction model (from parent directory)
-- **OpenCV/PIL**: Image processing
-- **NumPy**: Numerical operations
-- **PyTorch**: Deep learning framework
-- **NEW**: **HTTPBearer**: Authentication middleware
-- **NEW**: **asyncio**: Concurrent request handling
-- **NEW**: **logging**: VLLM-style request logging
-
-### Extension Points
-
-- **Add authentication**: ✅ **COMPLETED** - API key authentication implemented
-- **Add new endpoints**: Add new routes in `api_server.py` and methods in `depth_service.py`
-- **Add caching**: Implement Redis/database caching in `depth_service.py`
-- **Add logging**: ✅ **COMPLETED** - Structured logging throughout the service
-- **Add monitoring**: Add metrics collection and health checks

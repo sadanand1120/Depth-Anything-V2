@@ -188,8 +188,8 @@ class DepthAnythingV2(nn.Module):
         return depth.squeeze(1)
     
     @torch.no_grad()
-    def infer_image(self, raw_image, input_size=518, max_depth=None):
-        image, (h, w) = self.image2tensor(raw_image, input_size)
+    def infer_image(self, raw_image, input_size=518, max_depth=None, device=None):
+        image, (h, w) = self.image2tensor(raw_image, input_size, device)
         
         depth = self.forward(image, max_depth=max_depth)
         
@@ -197,7 +197,7 @@ class DepthAnythingV2(nn.Module):
         
         return depth.cpu().numpy()
     
-    def image2tensor(self, raw_image, input_size=518):        
+    def image2tensor(self, raw_image, input_size=518, device=None):        
         transform = Compose([
             Resize(
                 width=input_size,
@@ -219,7 +219,10 @@ class DepthAnythingV2(nn.Module):
         image = transform({'image': image})['image']
         image = torch.from_numpy(image).unsqueeze(0)
         
-        DEVICE = 'cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu'
+        if device is None:
+            DEVICE = 'cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu'
+        else:
+            DEVICE = device
         image = image.to(DEVICE)
         
         return image, (h, w)

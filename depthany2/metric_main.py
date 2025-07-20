@@ -36,7 +36,7 @@ class DepthAny2:
     @torch.inference_mode()
     def predict(self, cv2_img, max_depth=None):
         with torch.device(self.DEVICE):
-            depth_arr = self.depth_model.infer_image(cv2_img, self.model_input_size, max_depth)
+            depth_arr = self.depth_model.infer_image(cv2_img, self.model_input_size, max_depth, device=self.DEVICE)
             # resized_pred = PILImage.fromarray(depth_arr).resize((cv2_img.shape[1], cv2_img.shape[0]), PILImage.NEAREST)   # not needed, already correct size
         return depth_arr
 
