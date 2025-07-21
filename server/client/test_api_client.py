@@ -8,6 +8,7 @@ import numpy as np
 import requests
 import time
 import yaml
+from PIL import Image
 
 from server.client.depth_client import (
     encode_image, decode_pointcloud, decode_depth_map,
@@ -72,10 +73,10 @@ def test_endpoints():
         )
         print(f"✅ Relative depth: shape {rel_result['shape']}, range [{rel_result['min']:.3f}, {rel_result['max']:.3f}]")
         
-        pointcloud = decode_pointcloud(pc_result['pointcloud'], pc_result['pointcloud_shape'])
+        pointcloud = decode_pointcloud(pc_result['pointcloud'], pc_result['pointcloud_shape'], pil_img=Image.open(image_path).convert('RGB'))
         depth_map = decode_depth_map(metric_result['depth_map'], metric_result['shape'])
         
-        print(f"Decoded pointcloud: {pointcloud.shape}")
+        print(f"Decoded pointcloud: {pointcloud.points.shape}")
         print(f"Decoded depth map: {depth_map.shape}")
         
         matplotlib.use('Agg')

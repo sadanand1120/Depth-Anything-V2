@@ -2,6 +2,9 @@ import base64
 import numpy as np
 import requests
 from typing import Dict, Optional
+import open3d as o3d
+from PIL import Image
+from depthany2.viz_utils import get_pcd_colors_from_image
 
 
 def encode_image(image_path: str) -> str:
@@ -9,10 +12,14 @@ def encode_image(image_path: str) -> str:
         return base64.b64encode(f.read()).decode('utf-8')
 
 
-def decode_pointcloud(pointcloud_base64: str, shape: list) -> np.ndarray:
+def decode_pointcloud(pointcloud_base64: str, shape: list, pil_img: Image.Image = None) -> o3d.geometry.PointCloud:
     points_bytes = base64.b64decode(pointcloud_base64)
-    points_flat = np.frombuffer(points_bytes, dtype=np.float32)
-    return points_flat.reshape(shape)
+    points = np.frombuffer(points_bytes, dtype=np.float32).reshape(shape)
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points.astype(np.float64))
+    if pil_img is not None:
+        pcd.colors = get_pcd_colors_from_image(pil_img)
+    return pcd
 
 
 def decode_depth_map(depth_base64: str, shape: Optional[list] = None) -> np.ndarray:

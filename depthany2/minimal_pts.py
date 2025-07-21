@@ -4,10 +4,10 @@ import torch
 import yaml
 import os
 import argparse
-import matplotlib.pyplot as plt
-import open3d as o3d
 from PIL import Image
+import matplotlib.pyplot as plt
 from depthany2.metric_main import DepthAny2
+from depthany2.viz_utils import visualize_pcd, save_pointcloud, get_pcd_colors_from_image, pcd_from_np
 
 
 class DepthPredictor:
@@ -61,51 +61,11 @@ def load_intrinsics_from_yaml(yaml_path):
     return {'camera_matrix': K}
 
 
-def save_pointcloud(points, filepath):
-    """Save point cloud based on file extension"""
-    ext = os.path.splitext(filepath)[1].lower()
-    
-    if ext == ".bin":
-        flat_pc = points.reshape(-1).astype(np.float32)
-        flat_pc.tofile(filepath)
-    elif ext in [".ply", ".pcd"]:
-        pcd = pcd_from_np(points)
-        o3d.io.write_point_cloud(filepath, pcd)
-    else:
-        raise ValueError(f"Unsupported format: {ext}. Use .bin, .ply, or .pcd")
-
-
-def get_pcd_colors_from_image(pil_img: Image.Image):
-    colors = np.asarray(pil_img).reshape(-1, 3) / 255.0
-    return o3d.utility.Vector3dVector(colors)
-
-
-def pcd_from_np(pc_np, color_rgb_list=None):
-    pcd = o3d.geometry.PointCloud()
-    xyz = pc_np[:, :3]
-    pcd.points = o3d.utility.Vector3dVector(xyz)
-    c = [1, 0.647, 0] if color_rgb_list is None else color_rgb_list   # default orange color
-    pcd.colors = o3d.utility.Vector3dVector(np.tile(c, (len(xyz), 1)))
-    return pcd
-
-
-def visualize_pcd(pcd, point_size=0.85):
-    vis = o3d.visualization.Visualizer()
-    vis.create_window()
-    render_option = vis.get_render_option()
-    render_option.point_size = point_size
-    vis.add_geometry(pcd)
-    vis.poll_events()
-    vis.update_renderer()
-    vis.run()
-    vis.destroy_window()
-
-
 def main():
     parser = argparse.ArgumentParser(description="Predict depth and generate pointcloud from image using DepthAny2.")
     parser.add_argument('--image_path', type=str, default='/home/dynamo/AMRL_Research/repos/robot_calib/notrack_bags/paths/poc_cut/images/1742591008774347085.png', help='Path to input image')
     parser.add_argument('--intrinsics_path', type=str, default='/home/dynamo/AMRL_Research/repos/robot_calib/spot/params/cam_intrinsics_3072.yaml', help='Path to camera intrinsics YAML file')
-    parser.add_argument('--pc_outpath', type=str, default='pointcloud.bin', help='Output filepath for pointcloud (auto-detects format from extension)')
+    parser.add_argument('--pc_outpath', type=str, default='pointcloud.pcd', help='Output filepath for pointcloud (auto-detects format from extension, always saves as .pcd)')
     parser.add_argument('--encoder', type=str, default='vitl', choices=['vitl', 'vitb', 'vits'], help='Model encoder')
     parser.add_argument('--dataset', type=str, default='hypersim', help='Dataset type')
     parser.add_argument('--model_size', type=int, default=518, help='Model input size')
@@ -122,8 +82,10 @@ def main():
     )
     
     if args.save:
-        save_pointcloud(points, args.pc_outpath)
-        print(f"Saved point cloud with {points.shape[0]} points to {args.pc_outpath}")
+        save_pointcloud(points, args.pc_outpath, img_for_color=cv2_img)
+        np.save(os.path.splitext(args.pc_outpath)[0] + '_depth.npy', depth_rel_img)
+        plt.imsave(os.path.splitext(args.pc_outpath)[0] + '_depth.png', depth_rel_img)
+        print(f"Saved depth npy and png to {os.path.splitext(args.pc_outpath)[0]}_depth.npy/.png")
     
     if not args.no_depth_plot:
         plt.imshow(depth_rel_img)
