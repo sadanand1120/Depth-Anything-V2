@@ -5,8 +5,12 @@ import subprocess
 import os
 from PIL import Image
 import cv2
+import tempfile
 
-def visualize_pcd(pcd, point_size=0.85):
+def _viz_pc_internal(pc_path, point_size=0.85):
+    if not pc_path.endswith(".pcd"):
+        raise ValueError("Only .pcd files are supported for visualization.")
+    pcd = o3d.io.read_point_cloud(pc_path)
     vis = o3d.visualization.Visualizer()
     vis.create_window()
     render_option = vis.get_render_option()
@@ -17,14 +21,15 @@ def visualize_pcd(pcd, point_size=0.85):
     vis.run()
     vis.destroy_window()
 
-def _viz_pc_internal(pc_path):
-    if not pc_path.endswith(".pcd"):
-        raise ValueError("Only .pcd files are supported for visualization.")
-    pcd = o3d.io.read_point_cloud(pc_path)
-    visualize_pcd(pcd)
-
-def viz_pc(pc_path):
-    subprocess.run(["python3", "-c", f"from depthany2.viz_utils import _viz_pc_internal; _viz_pc_internal('{pc_path}')"])
+def viz_pc(pc_or_path, point_size=0.85):
+    """Visualize a point cloud from a .pcd file path or an Open3D PointCloud object using a subprocess."""
+    if isinstance(pc_or_path, str):
+        subprocess.run(["python3", "-c", f"from depthany2.viz_utils import _viz_pc_internal; _viz_pc_internal('{pc_or_path}', {point_size})"])
+    else:
+        with tempfile.NamedTemporaryFile(suffix='.pcd', delete=False) as tmp:
+            o3d.io.write_point_cloud(tmp.name, pc_or_path)
+            subprocess.run(["python3", "-c", f"from depthany2.viz_utils import _viz_pc_internal; _viz_pc_internal('{tmp.name}', {point_size})"])
+            os.unlink(tmp.name)
 
 def viz_depth_png(png_path):
     img = plt.imread(png_path)

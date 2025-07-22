@@ -7,7 +7,7 @@ import argparse
 from PIL import Image
 import matplotlib.pyplot as plt
 from depthany2.metric_main import DepthAny2
-from depthany2.viz_utils import visualize_pcd, save_pointcloud, get_pcd_colors_from_image, pcd_from_np
+from depthany2.viz_utils import viz_pc, save_pointcloud, get_pcd_colors_from_image, pcd_from_np
 
 
 class DepthPredictor:
@@ -96,7 +96,7 @@ def main():
         pil_img = Image.fromarray(cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB))
         pcd = pcd_from_np(points)
         pcd.colors = get_pcd_colors_from_image(pil_img)
-        visualize_pcd(pcd, point_size=0.75)
+        viz_pc(pcd, point_size=0.75)
 
 
 if __name__ == "__main__":
