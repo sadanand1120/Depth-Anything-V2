@@ -4,3 +4,4 @@ matplotlib
 opencv-python
 torch
 torchvision
+pyvista>=0.44.0

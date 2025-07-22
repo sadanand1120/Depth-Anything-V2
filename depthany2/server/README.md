@@ -2,6 +2,38 @@
 
 OpenAI-style API service for depth prediction using Depth Anything V2.
 
+## PyVista Migration and API Key Auth
+
+- **PyVista** is now the default and only supported visualization and point cloud I/O backend for all server and client utilities. All visualization and point cloud saving/loading should use PyVista functions (see `viz_utils.py`).
+- **Open3D** is used only as a bridge for legacy `.pcd` file I/O. If you need to read or write `.pcd` files, Open3D will be used internally, but you should not use it directly in your code.
+- The API server supports OpenAI-style API key authentication. All endpoints except `/health` require a valid API key.
+- Endpoints:
+  - `/pc`: POST, returns point cloud and depth map from image (requires camera intrinsics and max_depth)
+  - `/metric_depth`: POST, returns metric depth map (requires max_depth)
+  - `/rel_depth`: POST, returns relative depth map
+  - `/health`: GET, returns server health (no auth required)
+- Payloads and responses are documented in `depthany2/server/models.py` and are consistent between server and client.
+- See `depthany2/server/client/depth_client.py` for Python client functions (`predict_pointcloud`, `predict_metric_depth`, `predict_relative_depth`, `get_health`).
+- See `depthany2/server/client/test_api_client.py` for a comprehensive test script.
+
+## Testing Migration
+
+A comprehensive migration test is provided:
+
+```bash
+python3 test_pyvista_migration.py
+```
+
+This script tests:
+- Point cloud creation and color assignment
+- File I/O (PLY, VTK, VTP, and legacy PCD via Open3D bridge)
+- Color handling from images
+- Visualization setup and a popup window for visual confirmation
+- Format auto-detection
+- API compatibility
+
+**You should see a PyVista window pop up with a colored point cloud. Close it to continue.**
+
 ## Quick Start
 
 ### Server Setup

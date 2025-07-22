@@ -2,41 +2,36 @@ import base64
 import numpy as np
 import requests
 from typing import Dict, Optional
-import open3d as o3d
+import pyvista as pv
 from PIL import Image
 from depthany2.viz_utils import get_pcd_colors_from_image
-
 
 def encode_image(image_path: str) -> str:
     with open(image_path, "rb") as f:
         return base64.b64encode(f.read()).decode('utf-8')
 
-
-def decode_pointcloud(pointcloud_base64: str, shape: list, pil_img: Image.Image = None) -> o3d.geometry.PointCloud:
+def decode_pointcloud(pointcloud_base64: str, shape: list, pil_img: Image.Image = None) -> pv.PolyData:
+    """Decode base64 point cloud data and return PyVista PolyData"""
     points_bytes = base64.b64decode(pointcloud_base64)
     points = np.frombuffer(points_bytes, dtype=np.float32).reshape(shape)
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(points.astype(np.float64))
+    mesh = pv.PolyData(points.astype(np.float64))
     if pil_img is not None:
-        pcd.colors = get_pcd_colors_from_image(pil_img)
-    return pcd
-
+        colors = get_pcd_colors_from_image(pil_img)
+        mesh['colors'] = colors
+    return mesh
 
 def decode_depth_map(depth_base64: str, shape: Optional[list] = None) -> np.ndarray:
     depth_bytes = base64.b64decode(depth_base64)
     depth_flat = np.frombuffer(depth_bytes, dtype=np.float32)
-    
     if shape:
         return depth_flat.reshape(shape)
     return depth_flat
-
 
 def _get_headers(api_key: Optional[str] = None) -> Dict[str, str]:
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
     return headers
-
 
 def predict_pointcloud(image: Optional[str] = None, image_url: Optional[str] = None,
                       camera_intrinsics: Optional[Dict] = None, base_url: str = "http://localhost:8000",
@@ -49,19 +44,16 @@ def predict_pointcloud(image: Optional[str] = None, image_url: Optional[str] = N
         'model_input_size': model_input_size,
         'max_depth': max_depth
     }
-    
     if image:
         payload['image'] = image
     elif image_url:
         payload['image_url'] = image_url
     else:
         raise ValueError("Either image or image_url must be provided")
-    
     headers = _get_headers(api_key)
     response = requests.post(f"{base_url}/pc", json=payload, headers=headers)
     response.raise_for_status()
     return response.json()
-
 
 def predict_metric_depth(image: Optional[str] = None, image_url: Optional[str] = None,
                         base_url: str = "http://localhost:8000",
@@ -73,19 +65,16 @@ def predict_metric_depth(image: Optional[str] = None, image_url: Optional[str] =
         'model_input_size': model_input_size,
         'max_depth': max_depth
     }
-    
     if image:
         payload['image'] = image
     elif image_url:
         payload['image_url'] = image_url
     else:
         raise ValueError("Either image or image_url must be provided")
-    
     headers = _get_headers(api_key)
     response = requests.post(f"{base_url}/metric_depth", json=payload, headers=headers)
     response.raise_for_status()
     return response.json()
-
 
 def predict_relative_depth(image: Optional[str] = None, image_url: Optional[str] = None,
                           base_url: str = "http://localhost:8000",
@@ -96,19 +85,16 @@ def predict_relative_depth(image: Optional[str] = None, image_url: Optional[str]
         'dataset': dataset,
         'model_input_size': model_input_size
     }
-    
     if image:
         payload['image'] = image
     elif image_url:
         payload['image_url'] = image_url
     else:
         raise ValueError("Either image or image_url must be provided")
-    
     headers = _get_headers(api_key)
     response = requests.post(f"{base_url}/rel_depth", json=payload, headers=headers)
     response.raise_for_status()
     return response.json()
-
 
 def get_health(base_url: str = "http://localhost:8000", api_key: Optional[str] = None) -> Dict:
     headers = _get_headers(api_key)

@@ -12,8 +12,11 @@ setup(
         'opencv-contrib-python',
         'pyyaml',
         'matplotlib',
-        'open3d==0.16.0',
         'pillow',
+        'pyvista>=0.44.0',  # Primary visualization library
     ],
+    extras_require={
+        'pcd_support': ['open3d>=0.16.0'],  # Optional for PCD file I/O only
+    },
     python_requires='>=3.7',
 ) 
