@@ -10,7 +10,7 @@ import time
 import yaml
 from PIL import Image
 
-from server.client.depth_client import (
+from depthany2.server.client.depth_client import (
     encode_image, decode_pointcloud, decode_depth_map,
     predict_pointcloud, predict_metric_depth, predict_relative_depth, get_health
 )
@@ -20,14 +20,14 @@ from depthany2.minimal_pts import load_intrinsics_from_yaml
 def test_endpoints():
     print("Testing Depth Anything V2 API endpoints...")
     
-    with open("server/client/servers.yaml", "r") as f:
+    with open("depthany2/server/client/servers.yaml", "r") as f:
         servers = yaml.safe_load(f)
     
     base_url = servers["dany2"]["base_url"]
     api_key = servers["dany2"]["api_key"]
     
     try:
-        intrinsics_path = 'server/example/cam_intrinsics_3072.yaml'
+        intrinsics_path = 'depthany2/server/example/cam_intrinsics_3072.yaml'
         cam_intrinsics = load_intrinsics_from_yaml(intrinsics_path)
         camera_intrinsics = {
             'fx': cam_intrinsics['camera_matrix'][0, 0],
@@ -39,7 +39,7 @@ def test_endpoints():
         camera_intrinsics = {'fx': 1000.0, 'fy': 1000.0, 'cx': 640.0, 'cy': 480.0}
     
     try:
-        image_path = 'server/example/ahg_courtyard.png'
+        image_path = 'depthany2/server/example/ahg_courtyard.png'
         image_base64 = encode_image(image_path)
     except FileNotFoundError:
         print("Example image not found. Please provide a valid image path.")
@@ -76,7 +76,7 @@ def test_endpoints():
         pointcloud = decode_pointcloud(pc_result['pointcloud'], pc_result['pointcloud_shape'], pil_img=Image.open(image_path).convert('RGB'))
         depth_map = decode_depth_map(metric_result['depth_map'], metric_result['shape'])
         
-        print(f"Decoded pointcloud: {pointcloud.points.shape}")
+        print(f"Decoded pointcloud: {np.asarray(pointcloud.points).shape}")
         print(f"Decoded depth map: {depth_map.shape}")
         
         matplotlib.use('Agg')
@@ -97,7 +97,7 @@ def test_endpoints():
 def test_authentication():
     print("\n🔐 Testing API Key Authentication...")
     
-    with open("server/client/servers.yaml", "r") as f:
+    with open("depthany2/server/client/servers.yaml", "r") as f:
         servers = yaml.safe_load(f)
     
     base_url = servers["dany2"]["base_url"]
@@ -116,7 +116,7 @@ def test_authentication():
         print(f"❌ Health check with valid API key: {e}")
     
     try:
-        image_path = 'server/example/ahg_courtyard.png'
+        image_path = 'depthany2/server/example/ahg_courtyard.png'
         image_base64 = encode_image(image_path)
         test_payload = {'image': image_base64, 'max_depth': 1.0}
         
@@ -141,7 +141,7 @@ def test_authentication():
 def test_image_url():
     print("\n🌐 Testing Image URL Endpoint...")
     
-    with open("server/client/servers.yaml", "r") as f:
+    with open("depthany2/server/client/servers.yaml", "r") as f:
         servers = yaml.safe_load(f)
     
     base_url = servers["dany2"]["base_url"]
@@ -175,14 +175,14 @@ def test_image_url():
 def test_concurrent_queries():
     print("\n⚡ Testing Concurrent Requests...")
     
-    with open("server/client/servers.yaml", "r") as f:
+    with open("depthany2/server/client/servers.yaml", "r") as f:
         servers = yaml.safe_load(f)
     
     base_url = servers["dany2"]["base_url"]
     api_key = servers["dany2"]["api_key"]
     
     try:
-        image_path = 'server/example/ahg_courtyard.png'
+        image_path = 'depthany2/server/example/ahg_courtyard.png'
         image_base64 = encode_image(image_path)
     except FileNotFoundError:
         print("Example image not found, skipping concurrent test")

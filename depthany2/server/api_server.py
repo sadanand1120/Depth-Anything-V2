@@ -5,8 +5,8 @@ from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from server.models import DepthRequest, PointCloudResponse, DepthResponse, HealthResponse
-from server.depth_service import DepthService
+from depthany2.server.models import DepthRequest, PointCloudResponse, DepthResponse, HealthResponse
+from depthany2.server.depth_service import DepthService
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)

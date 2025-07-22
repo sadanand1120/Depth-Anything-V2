@@ -3,7 +3,7 @@
 import argparse
 import uvicorn
 
-from server.api_server import app
+from depthany2.server.api_server import app
 
 
 def main():
@@ -24,7 +24,7 @@ def main():
     if args.workers > 1:
         # For multiple workers, use import string
         uvicorn.run(
-            "server.api_server:app",
+            "depthany2.server.api_server:app",
             host=args.host,
             port=args.port,
             workers=args.workers,

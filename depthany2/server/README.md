@@ -6,14 +6,14 @@ OpenAI-style API service for depth prediction using Depth Anything V2.
 
 ### Server Setup
 ```bash
-pip install -r server/requirements_server.txt
-python server/run_api_server.py
+pip install -r depthany2/server/requirements_server.txt
+python -m depthany2.server.run_api_server
 ```
 
 ### Client Usage
 ```bash
-pip install -r server/requirements_client.txt
-python server/test_api_client.py
+pip install -r depthany2/server/client/requirements_client.txt
+python -m depthany2.server.client.test_api_client
 ```
 
 ## Authentication
@@ -25,16 +25,16 @@ The API supports OpenAI-style API key authentication. If you start the server wi
 **Basic usage:**
 ```bash
 # Start server with API key (authentication required)
-python server/run_api_server.py --api-key "sk-your-api-key"
+python -m depthany2.server.run_api_server --api-key "sk-your-api-key"
 
 # Start server without authentication (no API key needed)
-python server/run_api_server.py
+python -m depthany2.server.run_api_server
 ```
 
 **Advanced configuration:**
 ```bash
 # Production server with multiple workers
-python server/run_api_server.py \
+python -m depthany2.server.run_api_server \
   --host 0.0.0.0 \
   --port 8000 \
   --workers 4 \
@@ -52,7 +52,7 @@ python server/run_api_server.py \
 ### Client Usage with Authentication
 
 ```python
-from server.client.depth_client import predict_pointcloud, predict_relative_depth
+from depthany2.server.client.depth_client import predict_pointcloud, predict_relative_depth
 
 # With API key (if server requires authentication)
 result = predict_pointcloud(
@@ -71,7 +71,7 @@ result = predict_relative_depth(
 
 ### Configuration File
 
-Update `server/client/servers.yaml` with your API keys:
+Update `depthany2/server/client/servers.yaml` with your API keys:
 
 ```yaml
 dany2:
@@ -83,17 +83,20 @@ dany2:
 
 ## Structure
 ```
-server/
-├── api_server.py             # FastAPI app with endpoints
-├── models.py                 # Request/response models
-├── depth_service.py          # Core prediction service
-├── run_api_server.py         # Server startup with config
-├── test_api_client.py        # Client test script
-├── requirements_server.txt   # Server dependencies
-├── requirements_client.txt   # Client dependencies
-└── client/                   # Client library
-    ├── depth_client.py
-    └── servers.yaml          # Server configurations
+depthany2/
+├── server/
+│   ├── api_server.py             # FastAPI app with endpoints
+│   ├── models.py                 # Request/response models
+│   ├── depth_service.py          # Core prediction service
+│   ├── run_api_server.py         # Server startup with config
+│   ├── README.md                 # This file
+│   ├── requirements_server.txt   # Server dependencies
+│   ├── client/
+│   │   ├── depth_client.py
+│   │   ├── test_api_client.py
+│   │   ├── requirements_client.txt
+│   │   └── servers.yaml          # Server configurations
+│   └── example/                  # Example images and intrinsics
 ```
 
 ## API Endpoints
@@ -218,9 +221,9 @@ Content-Type: application/json
 
 ### Basic Usage
 ```python
-from server.client.depth_client import encode_image, predict_pointcloud, decode_pointcloud, decode_depth_map
+from depthany2.server.client.depth_client import encode_image, predict_pointcloud, decode_pointcloud, decode_depth_map
 
-# Encode image
+# Encode image (local file)
 image_base64 = encode_image("path/to/image.jpg")
 
 # Get pointcloud (requires camera intrinsics)
@@ -232,40 +235,73 @@ result = predict_pointcloud(
     api_key="sk-your-api-key"  # Optional
 )
 
+# Get pointcloud from image URL
+result = predict_pointcloud(
+    image_url="https://example.com/image.jpg",
+    camera_intrinsics={'fx': 1000.0, 'fy': 1000.0, 'cx': 640.0, 'cy': 480.0},
+    base_url="http://your-server:8000",
+    max_depth=1.0,
+    api_key="sk-your-api-key"
+)
+
+# Get metric depth (no camera intrinsics needed)
+metric_result = predict_metric_depth(
+    image=image_base64,
+    base_url="http://your-server:8000",
+    max_depth=1.0,
+    api_key="sk-your-api-key"
+)
+
 # Get relative depth (no camera intrinsics needed)
 rel_result = predict_relative_depth(
     image=image_base64,
     base_url="http://your-server:8000",
-    api_key="sk-your-api-key"  # Optional
+    api_key="sk-your-api-key"
 )
 
 # Decode results
 pointcloud = decode_pointcloud(result['pointcloud'], result['pointcloud_shape'])
 depth_map = decode_depth_map(result['depth_map'], result['depth_shape'])
 
-print(f"Pointcloud shape: {pointcloud.shape}")
+print(f"Pointcloud shape: {pointcloud.points.shape}")
 print(f"Depth map shape: {depth_map.shape}")
 ```
 
 ### All Functions
 ```python
-from server.client.depth_client import *
+from depthany2.server.client.depth_client import *
 
-# Point cloud (includes both pointcloud and depth) - requires camera intrinsics
-pc_result = predict_pointcloud(image=image_base64, camera_intrinsics=cam_int, 
-                             max_depth=1.0, api_key="sk-your-api-key")
+# Point cloud (local image or URL)
+pc_result = predict_pointcloud(image=image_base64, camera_intrinsics=cam_int, max_depth=1.0, api_key="sk-your-api-key")
+pc_result = predict_pointcloud(image_url="https://example.com/image.jpg", camera_intrinsics=cam_int, max_depth=1.0, api_key="sk-your-api-key")
 
-# Metric depth - no camera intrinsics needed
-metric_result = predict_metric_depth(image=image_base64, 
-                                   max_depth=1.0, api_key="sk-your-api-key")
+# Metric depth (local image or URL)
+metric_result = predict_metric_depth(image=image_base64, max_depth=1.0, api_key="sk-your-api-key")
+metric_result = predict_metric_depth(image_url="https://example.com/image.jpg", max_depth=1.0, api_key="sk-your-api-key")
 
-# Relative depth - no camera intrinsics needed
-rel_result = predict_relative_depth(image=image_base64, 
-                                  api_key="sk-your-api-key")
+# Relative depth (local image or URL)
+rel_result = predict_relative_depth(image=image_base64, api_key="sk-your-api-key")
+rel_result = predict_relative_depth(image_url="https://example.com/image.jpg", api_key="sk-your-api-key")
 
 # Health check
 health = get_health("http://your-server:8000", api_key="sk-your-api-key")
 ```
+
+### Test Script
+A comprehensive test script is provided:
+
+```bash
+python3 depthany2/server/client/test_api_client.py
+```
+
+This script tests:
+- All endpoints (pointcloud, metric depth, relative depth)
+- API key authentication (valid, invalid, missing)
+- Image URL support
+- Concurrency (multiple parallel requests)
+- Decoding and saving results
+
+Edit `depthany2/server/client/servers.yaml` to set your server URL and API key for the tests.
 
 ## Deployment
 
@@ -273,10 +309,10 @@ health = get_health("http://your-server:8000", api_key="sk-your-api-key")
 ```bash
 git clone <your-repo>
 cd Depth-Anything-V2
-pip install -r server/requirements_server.txt
+pip install -r depthany2/server/requirements_server.txt
 
 # Start with authentication and multiple workers
-python server/run_api_server.py \
+python -m depthany2.server.run_api_server \
   --host 0.0.0.0 \
   --port 8000 \
   --workers 4 \
@@ -286,10 +322,10 @@ python server/run_api_server.py \
 
 ### From Any Client
 ```bash
-pip install -r server/requirements_client.txt
+pip install -r depthany2/server/client/requirements_client.txt
 
 # Use in your code
-from server.client.depth_client import predict_pointcloud, predict_relative_depth
+from depthany2.server.client.depth_client import predict_pointcloud, predict_relative_depth
 
 # Pointcloud (requires camera intrinsics)
 result = predict_pointcloud(image=image_base64, camera_intrinsics=cam_int, 
