@@ -4,7 +4,10 @@ import requests
 from typing import Dict, Optional
 import pyvista as pv
 from PIL import Image
-from depthany2.viz_utils import get_pcd_colors_from_image
+import yaml
+import cv2
+from depthany2.viz_utils import get_pcd_colors_from_image, viz_pc, save_pointcloud
+
 
 def encode_image(image_path: str) -> str:
     with open(image_path, "rb") as f:
@@ -100,4 +103,91 @@ def get_health(base_url: str = "http://localhost:8000", api_key: Optional[str] =
     headers = _get_headers(api_key)
     response = requests.get(f"{base_url}/health", headers=headers)
     response.raise_for_status()
-    return response.json() 
+    return response.json()
+
+if __name__ == "__main__":
+    # --- Config ---
+    image_path = "depthany2/server/example/ahg_courtyard.png"
+    intrinsics_path = "depthany2/server/example/cam_intrinsics_3072.yaml"
+    servers_path = "depthany2/server/client/servers.yaml"
+    
+    # --- Load camera intrinsics from YAML ---
+    def load_intrinsics_from_yaml(yaml_path):
+        with open(yaml_path, 'r') as f:
+            data = yaml.safe_load(f)
+        K = data['camera_matrix']
+        return {
+            'fx': float(K[0][0]),
+            'fy': float(K[1][1]),
+            'cx': float(K[0][2]),
+            'cy': float(K[1][2])
+        }
+    camera_intrinsics = load_intrinsics_from_yaml(intrinsics_path)
+
+    # --- Load server info ---
+    with open(servers_path, "r") as f:
+        servers = yaml.safe_load(f)
+    selected_server = servers["dany2"]
+
+    # --- 1. Health check ---
+    health = get_health(base_url=selected_server["base_url"], api_key=selected_server["api_key"])
+    print("Health:", health)
+
+    # --- 2. Metric Depth (local image) ---
+    encoded = encode_image(image_path)
+    metric_result = predict_metric_depth(
+        image=encoded,
+        base_url=selected_server["base_url"],
+        api_key=selected_server["api_key"],
+        max_depth=1.0
+    )
+    print("Metric depth keys:", metric_result.keys())
+    if "depth_map" in metric_result:
+        depth_map = decode_depth_map(metric_result["depth_map"], metric_result["shape"])
+        print(f"Metric depth map shape: {depth_map.shape}")
+
+    # --- 2b. Metric Depth (image URL) ---
+    image_url = "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=640&h=480&fit=crop"
+    metric_url_result = predict_metric_depth(
+        image_url=image_url,
+        base_url=selected_server["base_url"],
+        api_key=selected_server["api_key"],
+        max_depth=1.0
+    )
+    print("Metric depth (URL) keys:", metric_url_result.keys())
+    if "depth_map" in metric_url_result:
+        depth_map_url = decode_depth_map(metric_url_result["depth_map"], metric_url_result["shape"])
+        print(f"Metric depth map (URL) shape: {depth_map_url.shape}")
+
+    # --- 3. Relative Depth (local image) ---
+    rel_result = predict_relative_depth(
+        image=encoded,
+        base_url=selected_server["base_url"],
+        api_key=selected_server["api_key"]
+    )
+    print("Relative depth keys:", rel_result.keys())
+    if "depth_map" in rel_result:
+        rel_depth_map = decode_depth_map(rel_result["depth_map"], rel_result["shape"])
+        print(f"Relative depth map shape: {rel_depth_map.shape}")
+
+    # --- 4. Pointcloud (local image, with intrinsics as dict) ---
+    pil_img = Image.open(image_path).convert('RGB')
+    bgr_img = cv2.imread(image_path)
+    pc_result = predict_pointcloud(
+        image=encoded,
+        camera_intrinsics=camera_intrinsics,
+        base_url=selected_server["base_url"],
+        api_key=selected_server["api_key"],
+        max_depth=1.0
+    )
+    pcd = decode_pointcloud(pc_result["pointcloud"], pc_result["pointcloud_shape"], pil_img=pil_img)
+    save_pointcloud(
+        points=np.asarray(pcd.points),
+        filepath="rest_pointcloud.pcd",
+        pil_img_for_color=pil_img
+    )
+    print("Saved REST API pointcloud as rest_pointcloud.pcd")
+    # Two-way viz: direct and from file
+    viz_pc(pcd)
+    viz_pc("rest_pointcloud.pcd")
+    print("Done.")
